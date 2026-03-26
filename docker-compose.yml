@@ -1,0 +1,89 @@
+services:
+  # ─── Nginx Reverse Proxy ───
+  nginx:
+    image: nginx:alpine
+    container_name: financebot-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - frontend-build:/usr/share/nginx/html:ro
+    depends_on:
+      frontend:
+        condition: service_completed_successfully
+      backend:
+        condition: service_started
+      python-rag:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - financebot-network
+
+  # ─── React Frontend (Build Stage) ───
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: financebot-frontend-build
+    volumes:
+      - frontend-build:/usr/share/nginx/html
+
+  # ─── Express.js Backend ───
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: financebot-backend
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - MONGO_URI=mongodb://mongodb:27017/financebot
+      - JWT_SECRET=${JWT_SECRET:-financebot_super_secret_jwt_key_2024}
+      - RAG_SERVICE_URL=http://python-rag:8000
+      - CORS_ORIGIN=http://localhost
+    volumes:
+      - uploads-data:/app/uploads
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+    networks:
+      - financebot-network
+
+  # ─── Python RAG Microservice ───
+  python-rag:
+    build:
+      context: ./python-rag
+      dockerfile: Dockerfile
+    container_name: financebot-python-rag
+    environment:
+      - PORT=8000
+      - UPLOAD_DIR=/app/uploads
+      - CHROMA_PERSIST_DIR=/app/chroma_data
+    volumes:
+      - uploads-data:/app/uploads
+      - chroma-data:/app/chroma_data
+    restart: unless-stopped
+    networks:
+      - financebot-network
+
+  # ─── MongoDB ───
+  mongodb:
+    image: mongo:7
+    container_name: financebot-mongodb
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+    networks:
+      - financebot-network
+
+volumes:
+  frontend-build:
+  mongo-data:
+  uploads-data:
+  chroma-data:
+
+networks:
+  financebot-network:
+    driver: bridge
