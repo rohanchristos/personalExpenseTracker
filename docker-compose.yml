@@ -38,7 +38,7 @@ services:
       - NODE_ENV=production
       - PORT=5000
       - MONGO_URI=mongodb://mongodb:27017/financebot
-      - JWT_SECRET=${JWT_SECRET:-financebot_super_secret_jwt_key_2024}
+      - JWT_SECRET=${JWT_SECRET:-change_this_to_a_strong_secret}
       - RAG_SERVICE_URL=http://python-rag:8000
       - CORS_ORIGIN=http://localhost
     volumes:
